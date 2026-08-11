@@ -1,0 +1,17 @@
+packages:
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+  sqlite3: true
+  unrs-resolver: false
+
+ignoredOptionalDependencies:
+  - '@rolldown/binding-wasm32-wasi'
+  - '@unrs/resolver-binding-wasm32-wasi'
+
+minimumReleaseAgeExclude:
+  - npm-run-all2@9.0.3
+
+overrides:
+  sequelize@6.37.8>uuid: 11.1.1

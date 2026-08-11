@@ -1,0 +1,61 @@
+{
+	"name": "@technomoron/apicore-client",
+	"version": "1.0.0",
+	"description": "HTTP client for apicore-server APIs",
+	"type": "module",
+	"main": "./dist/cjs/index.js",
+	"module": "./dist/esm/index.js",
+	"types": "./dist/esm/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/esm/index.d.ts",
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js"
+		}
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/technomoron/apicore.git",
+		"directory": "packages/client"
+	},
+	"author": "Bjørn Erik Jacobsen",
+	"license": "MIT",
+	"copyright": "Copyright (c) 2025-2026 Bjørn Erik Jacobsen",
+	"bugs": {
+		"url": "https://github.com/technomoron/apicore/issues"
+	},
+	"homepage": "https://github.com/technomoron/apicore/tree/main/packages/client#readme",
+	"scripts": {
+		"build:cjs": "node ../../scripts/sync-common-types.cjs && tsc --project tsconfig/tsconfig.cjs.json && node scripts/prepare-cjs.cjs",
+		"build:esm": "node ../../scripts/sync-common-types.cjs && tsc --project tsconfig/tsconfig.esm.json",
+		"build": "run-s build:cjs build:esm test:package",
+		"test": "vitest run",
+		"test:package": "node scripts/test-package.cjs",
+		"test:unit": "vitest run tests/unit",
+		"test:integration": "vitest run tests/integration",
+		"test:watch": "vitest --watch",
+		"prepublishOnly": "run-s build:cjs build:esm",
+		"lint": "eslint --config ../../eslint.config.mjs --no-error-on-unmatched-pattern --ext .js,.cjs,.mjs,.ts,.mts,.tsx,.vue,.json ./",
+		"lintfix": "eslint --config ../../eslint.config.mjs --fix --no-error-on-unmatched-pattern --ext .js,.cjs,.mjs,.ts,.mts,.tsx,.vue,.json ./",
+		"pretty": "prettier --config ../../.prettierrc --write \"**/*.{js,jsx,cjs,mjs,ts,tsx,mts,vue,json}\"",
+		"format": "run-s lintfix pretty",
+		"cleanbuild": "rimraf dist && run-s format build",
+		"release:check": "bash ./scripts/release-check.sh",
+		"release": "bash ./scripts/release.sh"
+	},
+	"devDependencies": {
+		"@technomoron/apicore-server": "workspace:*",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10"
+	},
+	"engines": {
+		"node": ">=24"
+	},
+	"files": [
+		"dist/",
+		"package.json",
+		"CHANGES.md",
+		"LICENSE",
+		"README.md"
+	]
+}

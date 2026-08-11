@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'server-v*'
+      - 'client-v*'
+
+jobs:
+  release:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+
+      - name: Install pnpm
+        run: npm install -g pnpm@11.17.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify tag targets origin/main
+        shell: bash
+        run: |
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "Tag ${GITHUB_REF_NAME} must point to a commit on origin/main." >&2
+            exit 1
+          fi
+
+      - name: Determine package dir
+        id: pkg
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            server-v*)
+              echo "dir=packages/server" >> "$GITHUB_OUTPUT"
+              echo "name=apicore-server" >> "$GITHUB_OUTPUT"
+              ;;
+            client-v*)
+              echo "dir=packages/client" >> "$GITHUB_OUTPUT"
+              echo "name=apicore-client" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported release tag ${TAG}." >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Verify package version matches tag
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          EXPECTED_VERSION="${TAG#*-v}"
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$PKG_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Package version ${PKG_VERSION} does not match tag ${TAG}." >&2
+            exit 1
+          fi
+
+      - name: Build
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: pnpm run build
+
+      - name: Pack npm package
+        working-directory: ${{ steps.pkg.outputs.dir }}
+        run: npm pack
+
+      - name: Publish npm package
+        run: bash ./scripts/release-package-publish.sh "${{ steps.pkg.outputs.dir }}" --ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          assets=( ${{ steps.pkg.outputs.dir }}/technomoron-${{ steps.pkg.outputs.name }}-*.tgz )
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No release assets found for ${{ steps.pkg.outputs.dir }}." >&2
+            exit 1
+          fi
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${assets[@]}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${assets[@]}" --generate-notes --verify-tag
+          fi

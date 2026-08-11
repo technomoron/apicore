@@ -1,0 +1,14 @@
+node_modules/
+package-lock.json
+# Nothing in this repo reads .env files; this only stops stray local
+# credential files from being committed by accident.
+.env
+.env.*
+.env-*
+# Ignore test file
+junit.xml
+vitest-output.txt
+.vitest-cache/
+coverage/
+dist/
+.fallow*

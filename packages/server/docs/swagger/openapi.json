@@ -1,0 +1,3324 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "ApiCore Server",
+		"version": "1.0.0",
+		"description": "OpenAPI reference for ApiCore Server base endpoints and optional modules. Auth, passkey, and oauth modules are optional and require the corresponding module to be enabled in the ApiServer config. Base endpoints are always available."
+	},
+	"servers": [
+		{
+			"url": "http://localhost:3101",
+			"description": "Default local development server"
+		}
+	],
+	"tags": [
+		{
+			"name": "base",
+			"description": "Base endpoints always available in ApiServer."
+		},
+		{
+			"name": "auth",
+			"description": "Optional auth module endpoints. Requires the auth module to be enabled in the ApiServer config."
+		},
+		{
+			"name": "passkey",
+			"description": "Optional passkey module endpoints. Requires passkey support to be enabled in the ApiServer auth config."
+		},
+		{
+			"name": "oauth",
+			"description": "Optional OAuth module endpoints. Requires OAuth support to be enabled in the ApiServer auth config."
+		}
+	],
+	"paths": {
+		"/api/v1/ping": {
+			"get": {
+				"tags": ["base"],
+				"summary": "Health check",
+				"description": "Auth: none. Returns ApiResponse<ApiPingRes> with server health and version metadata.",
+				"security": [],
+				"responses": {
+					"200": {
+						"description": "Server is reachable.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiPingRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/uploads/purge": {
+			"post": {
+				"tags": ["base"],
+				"summary": "Purge orphaned uploads",
+				"description": "Auth: strict. Removes expired MIME staging files and incomplete TUS uploads. Completed TUS uploads are preserved.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Expired upload files were purged.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/UploadPurgeSummary"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Administrator authorization required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/login": {
+			"post": {
+				"tags": ["auth"],
+				"summary": "Login with credentials",
+				"description": "Auth: none. Issues access and refresh tokens for valid credentials.",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/LoginRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Login succeeded.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiLoginRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Missing or invalid credentials.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/refresh": {
+			"post": {
+				"tags": ["auth"],
+				"summary": "Refresh access and refresh tokens",
+				"description": "Auth: required. Reissues tokens using a refresh token supplied in the body or refresh cookie.",
+				"security": [
+					{
+						"refreshTokenCookie": []
+					}
+				],
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RefreshRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Refresh succeeded.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiRefreshRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Missing or invalid refresh token.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Refresh token expired.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/logout": {
+			"post": {
+				"tags": ["auth"],
+				"summary": "Logout and revoke the refresh token",
+				"description": "Auth: required. Revokes the refresh token supplied in the body or refresh cookie and clears auth cookies.",
+				"security": [
+					{
+						"refreshTokenCookie": []
+					}
+				],
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/LogoutRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Logout succeeded.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiLogoutRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Not logged in.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/me": {
+			"get": {
+				"tags": ["auth"],
+				"summary": "Resolve the authenticated identity",
+				"description": "Auth: required. Resolves the effective user from the access token and includes the real user when impersonating.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Identity resolved.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiMeRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Missing or invalid access token.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/me/sessions": {
+			"get": {
+				"tags": ["auth"],
+				"summary": "List authenticated user sessions",
+				"description": "Auth: required. Returns safe session metadata with non-secret sessionId handles. Raw access and refresh tokens are never returned.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Sessions listed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiSessionsRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Missing or invalid access token.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/me/sessions/{sessionId}": {
+			"delete": {
+				"tags": ["auth"],
+				"summary": "Revoke an authenticated user session",
+				"description": "Auth: required. Revokes a session by non-secret sessionId, scoped to the authenticated user.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "sessionId",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						},
+						"description": "Non-secret session handle returned by GET /api/auth/v1/me/sessions."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Session revocation attempted.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiRevokeSessionRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Missing or invalid access token.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/impersonations": {
+			"post": {
+				"tags": ["auth"],
+				"summary": "Start impersonating a user",
+				"description": "Auth: strict. Issues tokens for a target user when impersonation is permitted.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ImpersonateRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Impersonation tokens issued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiLoginRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Missing userId or login.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Impersonation not permitted or user not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": ["auth"],
+				"summary": "Stop impersonating",
+				"description": "Auth: strict. Reissues tokens for the real user to end impersonation. Optional token metadata is read from query parameters, not the request body.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "keepSession",
+						"in": "query",
+						"required": false,
+						"description": "Boolean or TTL controlling refresh cookie persistence for the replacement tokens.",
+						"schema": {
+							"oneOf": [
+								{
+									"type": "boolean"
+								},
+								{
+									"type": "number"
+								},
+								{
+									"type": "string"
+								}
+							]
+						}
+					},
+					{
+						"name": "domain",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "fingerprint",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "label",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "browser",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "device",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "ip",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "os",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "clientId",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "scope",
+						"in": "query",
+						"required": false,
+						"description": "Space-delimited scope string or repeated query parameter values.",
+						"schema": {
+							"oneOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "loginType",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Impersonation ended; admin tokens returned.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiLoginRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Authenticated user not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/passkeys/challenge": {
+			"post": {
+				"tags": ["passkey"],
+				"summary": "Create a passkey challenge",
+				"description": "Auth: optional. Creates a passkey challenge for register or authenticate flows. The authenticate flow is public and can omit a user identifier to allow discoverable credentials. Register challenges require the authenticated, non-impersonating actor to match the target user.",
+				"security": [
+					{},
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/PasskeyChallengeRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Challenge created.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/PasskeyChallenge"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Malformed request.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Passkey registration requires authentication.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Passkey registration is not allowed while impersonating and must target the authenticated user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "Passkey support not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/passkeys/verify": {
+			"post": {
+				"tags": ["passkey"],
+				"summary": "Verify a passkey response",
+				"description": "Auth: optional. Verifies a passkey response and issues tokens on success. Authentication verification is public. Registration verification requires the authenticated, non-impersonating actor to match the challenge user before any credential is persisted.",
+				"security": [
+					{},
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/PasskeyVerifyRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Passkey verified; tokens issued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiLoginRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Malformed request.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Passkey verification failed, or passkey registration verification was attempted without authentication.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Passkey registration is not allowed while impersonating, must target the authenticated user, or the user could not be resolved.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "Passkey support not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/passkeys": {
+			"get": {
+				"tags": ["passkey"],
+				"summary": "List passkey credentials",
+				"description": "Auth: strict. Returns passkey credentials for the authenticated user.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Credentials for the current user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiPasskeyListRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Authenticated user not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "Passkey management not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/passkeys/{credentialId}": {
+			"delete": {
+				"tags": ["passkey"],
+				"summary": "Delete a passkey credential",
+				"description": "Auth: strict. Deletes the passkey credential identified by the path parameter.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "credentialId",
+						"in": "path",
+						"required": true,
+						"description": "Credential id (base64url).",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Credential deleted.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiPasskeyDeleteRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Missing or invalid credentialId.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Authenticated user not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Passkey not found.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "Passkey management not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/oauth2/{provider}/start": {
+			"post": {
+				"tags": ["oauth"],
+				"summary": "Begin an external OAuth flow",
+				"description": "Auth: none. Starts an external OAuth flow for the provider.",
+				"security": [],
+				"parameters": [
+					{
+						"name": "provider",
+						"in": "path",
+						"required": true,
+						"description": "OAuth provider identifier.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/OAuthStartRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Start payload for the provider.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiOAuthStartRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Missing provider.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "OAuth support not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/oauth2/{provider}/callback": {
+			"post": {
+				"tags": ["oauth"],
+				"summary": "Complete an external OAuth flow",
+				"description": "Auth: none. Completes the provider callback and returns the provider result.",
+				"security": [],
+				"parameters": [
+					{
+						"name": "provider",
+						"in": "path",
+						"required": true,
+						"description": "OAuth provider identifier.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"required": false,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"additionalProperties": true
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Provider callback result.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiOAuthCallbackRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Missing provider.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "OAuth support not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/oauth2/authorize": {
+			"post": {
+				"tags": ["oauth"],
+				"summary": "Issue an authorization code",
+				"description": "Auth: optional. Issues an authorization code for a registered redirect URI. Public clients must use PKCE; S256 is the secure default. Requested scopes must be allowed by the client record.",
+				"security": [
+					{
+						"refreshTokenCookie": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/OAuthAuthorizeRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Authorization code issued.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiOAuthAuthorizeRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request or client configuration.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "User authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "OAuth authorization storage not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/auth/v1/oauth2/token": {
+			"post": {
+				"tags": ["oauth"],
+				"summary": "Exchange a code or refresh token",
+				"description": "Auth: none. Exchanges an authorization code or refresh token for OAuth tokens; client authentication may be required.",
+				"security": [],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/OAuthTokenRequest"
+							}
+						},
+						"application/x-www-form-urlencoded": {
+							"schema": {
+								"$ref": "#/components/schemas/OAuthTokenRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Token response.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"$ref": "#/components/schemas/ApiOAuthTokenRes"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid request.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Invalid client credentials.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"501": {
+						"description": "OAuth token storage not configured.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/upload": {
+			"options": {
+				"tags": ["base"],
+				"operationId": "getTusCapabilities",
+				"summary": "Read TUS capabilities",
+				"description": "Auth: none. Returns protocol limits and supported TUS extensions in response headers.",
+				"security": [],
+				"responses": {
+					"204": {
+						"description": "TUS capabilities returned in headers.",
+						"headers": {
+							"Tus-Resumable": {
+								"description": "TUS protocol version.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Tus-Version": {
+								"description": "Supported TUS versions.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Tus-Extension": {
+								"description": "Supported TUS extensions.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Tus-Max-Size": {
+								"description": "Maximum upload size in bytes.",
+								"schema": {
+									"type": "integer"
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": ["base"],
+				"operationId": "createTusUpload",
+				"summary": "Create a resumable upload",
+				"description": "Auth: required. Creates an incomplete upload after validating its declared size and client-supplied metadata.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "Tus-Resumable",
+						"in": "header",
+						"required": true,
+						"description": "TUS protocol version. Use 1.0.0.",
+						"schema": {
+							"type": "string",
+							"enum": ["1.0.0"]
+						}
+					},
+					{
+						"name": "Upload-Length",
+						"in": "header",
+						"required": true,
+						"description": "Total upload size in bytes.",
+						"schema": {
+							"type": "integer",
+							"minimum": 1
+						}
+					},
+					{
+						"name": "Upload-Metadata",
+						"in": "header",
+						"required": false,
+						"description": "Comma-separated TUS metadata values.",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"201": {
+						"description": "Upload created. The response has no body.",
+						"headers": {
+							"Location": {
+								"description": "URL for subsequent HEAD, PATCH, and DELETE requests.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Upload-Offset": {
+								"description": "Initial upload offset.",
+								"schema": {
+									"type": "integer"
+								}
+							},
+							"Tus-Resumable": {
+								"description": "TUS protocol version.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Upload-Expires": {
+								"description": "Expiry time for an incomplete upload.",
+								"schema": {
+									"type": "string",
+									"format": "http-date"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid TUS headers or upload length.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Authenticated user is not allowed to create the upload.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"413": {
+						"description": "Declared upload size exceeds the configured limit.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"507": {
+						"description": "Upload storage has insufficient capacity.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/api/v1/upload/{uploadId}": {
+			"head": {
+				"tags": ["base"],
+				"operationId": "inspectTusUpload",
+				"summary": "Read resumable upload state",
+				"description": "Auth: required. Returns the current offset and declared size in response headers.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uploadId",
+						"in": "path",
+						"required": true,
+						"description": "Opaque upload identifier returned in the Location header.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "Tus-Resumable",
+						"in": "header",
+						"required": true,
+						"description": "TUS protocol version. Use 1.0.0.",
+						"schema": {
+							"type": "string",
+							"enum": ["1.0.0"]
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Upload state returned in headers. The response has no body.",
+						"headers": {
+							"Upload-Offset": {
+								"description": "Current upload offset in bytes.",
+								"schema": {
+									"type": "integer"
+								}
+							},
+							"Upload-Length": {
+								"description": "Declared total upload size in bytes.",
+								"schema": {
+									"type": "integer"
+								}
+							},
+							"Tus-Resumable": {
+								"description": "TUS protocol version.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Upload-Expires": {
+								"description": "Expiry time for an incomplete upload.",
+								"schema": {
+									"type": "string",
+									"format": "http-date"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Upload belongs to another user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Upload not found. The response has no body."
+					},
+					"410": {
+						"description": "Incomplete upload expired. The response has no body."
+					}
+				}
+			},
+			"patch": {
+				"tags": ["base"],
+				"operationId": "appendTusUpload",
+				"summary": "Append a resumable upload chunk",
+				"description": "Auth: required. Appends one binary chunk at the current upload offset.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uploadId",
+						"in": "path",
+						"required": true,
+						"description": "Opaque upload identifier returned in the Location header.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "Tus-Resumable",
+						"in": "header",
+						"required": true,
+						"description": "TUS protocol version. Use 1.0.0.",
+						"schema": {
+							"type": "string",
+							"enum": ["1.0.0"]
+						}
+					},
+					{
+						"name": "Upload-Offset",
+						"in": "header",
+						"required": true,
+						"description": "Expected current upload offset in bytes.",
+						"schema": {
+							"type": "integer",
+							"minimum": 0
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/offset+octet-stream": {
+							"schema": {
+								"type": "string",
+								"format": "binary"
+							}
+						}
+					}
+				},
+				"responses": {
+					"204": {
+						"description": "Chunk accepted. The response has no body.",
+						"headers": {
+							"Upload-Offset": {
+								"description": "Updated upload offset in bytes.",
+								"schema": {
+									"type": "integer"
+								}
+							},
+							"Tus-Resumable": {
+								"description": "TUS protocol version.",
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Upload-Expires": {
+								"description": "Expiry time for an incomplete upload.",
+								"schema": {
+									"type": "string",
+									"format": "http-date"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Invalid TUS headers or chunk body.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Upload belongs to another user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Upload not found. The response has no body."
+					},
+					"409": {
+						"description": "Upload offset mismatch. The response has no body."
+					},
+					"410": {
+						"description": "Incomplete upload expired. The response has no body."
+					},
+					"413": {
+						"description": "Chunk exceeds the configured chunk or upload limit.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"507": {
+						"description": "Upload storage has insufficient capacity.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": ["base"],
+				"operationId": "deleteTusUpload",
+				"summary": "Delete a resumable upload",
+				"description": "Auth: required. Deletes an upload when the configured store supports termination.",
+				"security": [
+					{
+						"accessTokenBearer": []
+					},
+					{
+						"accessTokenCookie": []
+					},
+					{
+						"apiKeyBearer": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uploadId",
+						"in": "path",
+						"required": true,
+						"description": "Opaque upload identifier returned in the Location header.",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "Tus-Resumable",
+						"in": "header",
+						"required": true,
+						"description": "TUS protocol version. Use 1.0.0.",
+						"schema": {
+							"type": "string",
+							"enum": ["1.0.0"]
+						}
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Upload deleted. The response has no body."
+					},
+					"401": {
+						"description": "Authentication required.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Upload belongs to another user.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"allOf": [
+										{
+											"$ref": "#/components/schemas/ApiResponse"
+										},
+										{
+											"type": "object",
+											"properties": {
+												"data": {
+													"type": "null"
+												}
+											},
+											"required": ["data"]
+										}
+									]
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Upload not found. The response has no body."
+					},
+					"405": {
+						"description": "The configured store does not support deletion. The response has no body."
+					},
+					"410": {
+						"description": "Incomplete upload expired. The response has no body."
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"accessTokenBearer": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "JWT access token via Authorization: Bearer <token>."
+			},
+			"accessTokenCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "dat",
+				"description": "Access token cookie (default name \"dat\", configurable via ApiServerConf.accessCookie)."
+			},
+			"refreshTokenCookie": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "drt",
+				"description": "Refresh token cookie (default name \"drt\", configurable via ApiServerConf.refreshCookie)."
+			},
+			"apiKeyBearer": {
+				"type": "http",
+				"scheme": "bearer",
+				"description": "API key via Authorization: Bearer <secret> (or Bearer <prefix><secret> when apiKeyPrefix is configured). Requires apiKeyEnabled=true on the server, or a route with auth type 'apikey'. API keys support optional impersonation: when the key record includes an euid, the request acts as the effective user while getRealUid() returns the key owner."
+			},
+			"requestSignature": {
+				"type": "apiKey",
+				"in": "header",
+				"name": "X-ApiCore-Signature",
+				"description": "HMAC or custom request signature. The default HMAC signer also requires X-ApiCore-Timestamp. Runtime route policy determines which operations require signing."
+			}
+		},
+		"schemas": {
+			"SafeUser": {
+				"type": "object",
+				"description": "Filtered user representation returned by storage.filterUser().",
+				"additionalProperties": true
+			},
+			"ApiResponse": {
+				"type": "object",
+				"description": "ApiResponse<T> standard envelope used by all endpoints (success or error). T is the endpoint-specific payload type carried in the data field. Mirrors ApiResponseShape.",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "True on success responses."
+					},
+					"code": {
+						"type": "integer",
+						"description": "HTTP status code mirrored in the body."
+					},
+					"message": {
+						"type": "string",
+						"description": "Message string; may be defaulted by the client."
+					},
+					"data": {
+						"description": "Endpoint-specific payload.",
+						"nullable": true
+					},
+					"errors": {
+						"type": "object",
+						"description": "Field-level validation errors keyed by field name.",
+						"additionalProperties": {
+							"type": "string"
+						}
+					}
+				},
+				"required": ["success","code","message","data","errors"]
+			},
+			"ApiPingRes": {
+				"type": "object",
+				"description": "Data payload returned by GET /api/v1/ping.",
+				"properties": {
+					"success": {
+						"type": "boolean",
+						"description": "Always true (redundant with ApiResponse.success)."
+					},
+					"status": {
+						"type": "string",
+						"description": "Health indicator (\"ok\")."
+					},
+					"apiVersion": {
+						"type": "string"
+					},
+					"minClientVersion": {
+						"type": "string"
+					},
+					"uptimeSec": {
+						"type": "number"
+					},
+					"startedAt": {
+						"type": "integer",
+						"format": "int64",
+						"description": "Server start time as milliseconds since epoch."
+					},
+					"timestamp": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": ["success","status","apiVersion","minClientVersion","uptimeSec","startedAt","timestamp"]
+			},
+			"UploadPurgeResult": {
+				"type": "object",
+				"description": "Uploads and content bytes removed from one upload store.",
+				"properties": {
+					"uploads": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"bytes": {
+						"type": "integer",
+						"minimum": 0
+					}
+				},
+				"required": ["uploads","bytes"]
+			},
+			"UploadPurgeSummary": {
+				"type": "object",
+				"description": "Result of purging upload files older than the configured expiry.",
+				"properties": {
+					"cutoff": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"mime": {
+						"$ref": "#/components/schemas/UploadPurgeResult"
+					},
+					"tus": {
+						"$ref": "#/components/schemas/UploadPurgeResult"
+					},
+					"total": {
+						"$ref": "#/components/schemas/UploadPurgeResult"
+					}
+				},
+				"required": ["cutoff","mime","tus","total"]
+			},
+			"ApiLogoutRes": {
+				"type": "object",
+				"description": "Payload returned by /auth/v1/logout.",
+				"properties": {
+					"revoked": {
+						"type": "integer",
+						"description": "Number of refresh tokens revoked."
+					}
+				},
+				"required": ["revoked"]
+			},
+			"SessionInfo": {
+				"type": "object",
+				"description": "Safe session metadata. Token secrets are never included.",
+				"properties": {
+					"sessionId": {
+						"type": "string",
+						"description": "Non-secret session handle used for revocation."
+					},
+					"current": {
+						"type": "boolean"
+					},
+					"tokenHint": {
+						"type": "string",
+						"description": "Display-only masked refresh-token suffix. Do not use as an identifier."
+					},
+					"expires": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"issuedAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"lastSeenAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"status": {
+						"type": "string",
+						"enum": ["active","expired","revoked"]
+					},
+					"clientId": {
+						"type": "string"
+					},
+					"domain": {
+						"type": "string"
+					},
+					"fingerprint": {
+						"type": "string"
+					},
+					"label": {
+						"type": "string"
+					},
+					"browser": {
+						"type": "string"
+					},
+					"device": {
+						"type": "string"
+					},
+					"ip": {
+						"type": "string"
+					},
+					"os": {
+						"type": "string"
+					},
+					"scope": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"loginType": {
+						"type": "string"
+					},
+					"sessionCookie": {
+						"type": "boolean"
+					}
+				},
+				"required": ["sessionId","current"]
+			},
+			"ApiSessionsRes": {
+				"type": "object",
+				"properties": {
+					"sessions": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SessionInfo"
+						}
+					}
+				},
+				"required": ["sessions"]
+			},
+			"ApiRevokeSessionRes": {
+				"type": "object",
+				"properties": {
+					"revoked": {
+						"type": "integer",
+						"description": "Number of sessions revoked."
+					}
+				},
+				"required": ["revoked"]
+			},
+			"LoginRequest": {
+				"type": "object",
+				"properties": {
+					"login": {
+						"type": "string"
+					},
+					"password": {
+						"type": "string"
+					},
+					"domain": {
+						"type": "string",
+						"nullable": true
+					},
+					"fingerprint": {
+						"type": "string",
+						"nullable": true
+					},
+					"label": {
+						"type": "string",
+						"nullable": true
+					},
+					"browser": {
+						"type": "string",
+						"nullable": true
+					},
+					"device": {
+						"type": "string",
+						"nullable": true
+					},
+					"ip": {
+						"type": "string",
+						"nullable": true
+					},
+					"os": {
+						"type": "string",
+						"nullable": true
+					},
+					"keepSession": {
+						"description": "Boolean or TTL controlling refresh cookie persistence.",
+						"nullable": true
+					}
+				},
+				"required": ["login","password"]
+			},
+			"RefreshRequest": {
+				"type": "object",
+				"properties": {
+					"refreshToken": {
+						"type": "string",
+						"nullable": true
+					},
+					"domain": {
+						"type": "string",
+						"nullable": true
+					},
+					"fingerprint": {
+						"type": "string",
+						"nullable": true
+					},
+					"label": {
+						"type": "string",
+						"nullable": true
+					},
+					"keepSession": {
+						"nullable": true
+					}
+				}
+			},
+			"LogoutRequest": {
+				"type": "object",
+				"properties": {
+					"token": {
+						"type": "string",
+						"description": "Refresh token; falls back to cookie when omitted.",
+						"nullable": true
+					},
+					"refreshToken": {
+						"type": "string",
+						"description": "Refresh token alternative to token; falls back to the configured refresh cookie when omitted.",
+						"nullable": true
+					}
+				}
+			},
+			"ImpersonateRequest": {
+				"type": "object",
+				"properties": {
+					"userId": {
+						"description": "Target user id.",
+						"nullable": true
+					},
+					"login": {
+						"type": "string",
+						"description": "Target login identifier.",
+						"nullable": true
+					},
+					"keepSession": {
+						"nullable": true
+					},
+					"domain": {
+						"type": "string",
+						"nullable": true
+					},
+					"fingerprint": {
+						"type": "string",
+						"nullable": true
+					},
+					"label": {
+						"type": "string",
+						"nullable": true
+					},
+					"browser": {
+						"type": "string",
+						"nullable": true
+					},
+					"device": {
+						"type": "string",
+						"nullable": true
+					},
+					"ip": {
+						"type": "string",
+						"nullable": true
+					},
+					"os": {
+						"type": "string",
+						"nullable": true
+					},
+					"clientId": {
+						"type": "string",
+						"nullable": true
+					},
+					"scope": {
+						"description": "Space-delimited or array scope.",
+						"nullable": true
+					},
+					"loginType": {
+						"type": "string",
+						"nullable": true
+					}
+				}
+			},
+			"PasskeyChallenge": {
+				"type": "object",
+				"description": "Challenge payload returned when initiating a passkey operation.",
+				"properties": {
+					"challenge": {
+						"type": "string"
+					},
+					"expiresAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"userId": {
+						"description": "User identifier for the challenge.",
+						"nullable": true
+					}
+				},
+				"additionalProperties": true,
+				"required": ["challenge"]
+			},
+			"PasskeyCredential": {
+				"type": "object",
+				"description": "Passkey credential entry.",
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"transports": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						},
+						"nullable": true
+					},
+					"backedUp": {
+						"type": "boolean"
+					},
+					"deviceType": {
+						"type": "string",
+						"enum": ["singleDevice","multiDevice"]
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					},
+					"updatedAt": {
+						"type": "string",
+						"format": "date-time",
+						"nullable": true
+					}
+				},
+				"required": ["id","backedUp","deviceType"]
+			},
+			"ApiPasskeyListRes": {
+				"type": "object",
+				"description": "Payload returned by GET /auth/v1/passkeys.",
+				"properties": {
+					"credentials": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/PasskeyCredential"
+						}
+					}
+				},
+				"required": ["credentials"]
+			},
+			"ApiPasskeyDeleteRes": {
+				"type": "object",
+				"description": "Payload returned after deleting a passkey credential.",
+				"properties": {
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"]
+			},
+			"PasskeyChallengeRequest": {
+				"type": "object",
+				"description": "Passkey challenge request. action='authenticate' is public and may omit login/userId to allow discoverable credentials. action='register' requires the caller to be authenticated as the target user and not be impersonating.",
+				"properties": {
+					"action": {
+						"type": "string",
+						"description": "'authenticate' is public. 'register' requires authenticated self-enrollment for the target user.",
+						"enum": ["register","authenticate"]
+					},
+					"login": {
+						"type": "string",
+						"nullable": true
+					},
+					"userId": {
+						"nullable": true
+					}
+				},
+				"required": ["action"]
+			},
+			"PasskeyVerifyRequest": {
+				"type": "object",
+				"description": "Passkey verification request. Authentication verification is public. Registration verification requires the same authenticated, non-impersonating actor that initiated the registration challenge.",
+				"properties": {
+					"expectedChallenge": {
+						"type": "string"
+					},
+					"response": {
+						"type": "object",
+						"additionalProperties": true
+					},
+					"login": {
+						"type": "string",
+						"nullable": true
+					},
+					"userId": {
+						"nullable": true
+					},
+					"userAgent": {
+						"type": "string",
+						"nullable": true
+					},
+					"domain": {
+						"type": "string",
+						"nullable": true
+					},
+					"fingerprint": {
+						"type": "string",
+						"nullable": true
+					},
+					"label": {
+						"type": "string",
+						"nullable": true
+					},
+					"browser": {
+						"type": "string",
+						"nullable": true
+					},
+					"device": {
+						"type": "string",
+						"nullable": true
+					},
+					"ip": {
+						"type": "string",
+						"nullable": true
+					},
+					"os": {
+						"type": "string",
+						"nullable": true
+					},
+					"keepSession": {
+						"nullable": true
+					}
+				},
+				"required": ["expectedChallenge","response"]
+			},
+			"OAuthStartRequest": {
+				"type": "object",
+				"properties": {
+					"redirectUri": {
+						"type": "string",
+						"nullable": true
+					},
+					"scope": {
+						"nullable": true
+					},
+					"state": {
+						"type": "string",
+						"nullable": true
+					},
+					"extras": {
+						"type": "object",
+						"additionalProperties": true,
+						"nullable": true
+					}
+				}
+			},
+			"OAuthAuthorizeRequest": {
+				"type": "object",
+				"properties": {
+					"clientId": {
+						"type": "string"
+					},
+					"redirectUri": {
+						"type": "string"
+					},
+					"scope": {
+						"nullable": true
+					},
+					"state": {
+						"type": "string",
+						"nullable": true
+					},
+					"codeChallenge": {
+						"type": "string",
+						"description": "PKCE code challenge. Requires codeChallengeMethod when present.",
+						"nullable": true
+					},
+					"codeChallengeMethod": {
+						"type": "string",
+						"description": "PKCE method for codeChallenge. Must be supplied when codeChallenge is present.",
+						"enum": ["S256","plain"],
+						"nullable": true
+					},
+					"login": {
+						"type": "string",
+						"nullable": true
+					},
+					"password": {
+						"type": "string",
+						"nullable": true
+					},
+					"refreshToken": {
+						"type": "string",
+						"description": "Refresh token alternative to the configured refresh cookie.",
+						"nullable": true
+					}
+				},
+				"required": ["clientId","redirectUri"]
+			},
+			"OAuthTokenRequest": {
+				"type": "object",
+				"properties": {
+					"grant_type": {
+						"type": "string",
+						"enum": ["authorization_code","refresh_token"]
+					},
+					"code": {
+						"type": "string",
+						"nullable": true
+					},
+					"redirect_uri": {
+						"type": "string",
+						"nullable": true
+					},
+					"code_verifier": {
+						"type": "string",
+						"nullable": true
+					},
+					"refresh_token": {
+						"type": "string",
+						"nullable": true
+					},
+					"client_id": {
+						"type": "string",
+						"nullable": true
+					},
+					"client_secret": {
+						"type": "string",
+						"nullable": true
+					},
+					"scope": {
+						"type": "string",
+						"description": "Space-delimited scopes requested for the replacement token.",
+						"nullable": true
+					}
+				},
+				"required": ["grant_type"]
+			},
+			"ApiOAuthStartRes": {
+				"type": "object",
+				"description": "Provider-specific start payload (e.g. redirect URL, state).",
+				"additionalProperties": true
+			},
+			"ApiOAuthCallbackRes": {
+				"type": "object",
+				"description": "Provider-specific callback payload (may include tokens and user).",
+				"additionalProperties": true
+			},
+			"ApiOAuthAuthorizeRes": {
+				"type": "object",
+				"description": "Authorization code response.",
+				"properties": {
+					"code": {
+						"type": "string",
+						"description": "Authorization code."
+					},
+					"redirectUri": {
+						"type": "string",
+						"description": "Redirect URI to continue the OAuth flow."
+					},
+					"state": {
+						"type": "string",
+						"nullable": true
+					}
+				},
+				"required": ["code","redirectUri"]
+			},
+			"ApiOAuthTokenRes": {
+				"type": "object",
+				"description": "OAuth access and refresh token response.",
+				"properties": {
+					"access_token": {
+						"type": "string"
+					},
+					"refresh_token": {
+						"type": "string"
+					},
+					"token_type": {
+						"type": "string",
+						"enum": ["Bearer"]
+					},
+					"expires_in": {
+						"type": "integer"
+					},
+					"scope": {
+						"type": "string"
+					},
+					"client_id": {
+						"type": "string"
+					}
+				},
+				"required": ["access_token","refresh_token","token_type","expires_in","scope","client_id"],
+				"additionalProperties": false
+			},
+			"ApiLoginRes": {
+				"type": "object",
+				"description": "Access and refresh tokens paired with the signed-in user.",
+				"properties": {
+					"accessToken": {
+						"type": "string"
+					},
+					"refreshToken": {
+						"type": "string"
+					},
+					"user": {
+						"$ref": "#/components/schemas/SafeUser"
+					}
+				},
+				"required": ["accessToken","refreshToken","user"]
+			},
+			"ApiRefreshRes": {
+				"type": "object",
+				"description": "Access and refresh tokens returned by /auth/v1/refresh.",
+				"properties": {
+					"accessToken": {
+						"type": "string"
+					},
+					"refreshToken": {
+						"type": "string"
+					}
+				},
+				"required": ["accessToken","refreshToken"]
+			},
+			"ApiMeRes": {
+				"type": "object",
+				"description": "Identity payload returned by /auth/v1/me.",
+				"properties": {
+					"user": {
+						"$ref": "#/components/schemas/SafeUser"
+					},
+					"ruser": {
+						"$ref": "#/components/schemas/SafeUser",
+						"nullable": true,
+						"description": "Real user when the token is impersonating another effective user."
+					}
+				},
+				"required": ["user"]
+			}
+		}
+	}
+}

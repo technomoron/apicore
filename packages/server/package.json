@@ -1,0 +1,126 @@
+{
+	"name": "@technomoron/apicore-server",
+	"version": "1.0.0",
+	"description": "Fastify API server framework with auth, JWT, OAuth, passkeys, and Sequelize adapters",
+	"type": "module",
+	"main": "./dist/cjs/index.cjs",
+	"module": "./dist/esm/index.js",
+	"types": "./dist/esm/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/esm/index.d.ts",
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.cjs"
+		},
+		"./auth-api/sql-auth-store": {
+			"types": "./dist/esm/auth-api/sql-auth-store.d.ts",
+			"import": "./dist/esm/auth-api/sql-auth-store.js",
+			"require": "./dist/cjs/auth-api/sql-auth-store.cjs"
+		},
+		"./oauth/sequelize": {
+			"types": "./dist/esm/oauth/sequelize.d.ts",
+			"import": "./dist/esm/oauth/sequelize.js",
+			"require": "./dist/cjs/oauth/sequelize.cjs"
+		},
+		"./passkey/sequelize": {
+			"types": "./dist/esm/passkey/sequelize.d.ts",
+			"import": "./dist/esm/passkey/sequelize.js",
+			"require": "./dist/cjs/passkey/sequelize.cjs"
+		},
+		"./token/sequelize": {
+			"types": "./dist/esm/token/sequelize.d.ts",
+			"import": "./dist/esm/token/sequelize.js",
+			"require": "./dist/cjs/token/sequelize.cjs"
+		},
+		"./user/sequelize": {
+			"types": "./dist/esm/user/sequelize.d.ts",
+			"import": "./dist/esm/user/sequelize.js",
+			"require": "./dist/cjs/user/sequelize.cjs"
+		}
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/technomoron/apicore.git",
+		"directory": "packages/server"
+	},
+	"author": "Bjørn Erik Jacobsen",
+	"license": "MIT",
+	"copyright": "Copyright (c) 2025-2026 Bjørn Erik Jacobsen",
+	"bugs": {
+		"url": "https://github.com/technomoron/apicore/issues"
+	},
+	"homepage": "https://github.com/technomoron/apicore/tree/main/packages/server#readme",
+	"engines": {
+		"node": ">=24"
+	},
+	"scripts": {
+		"scrub": "rm -rf ./node_modules/ pnpm-lock.yaml ./dist/",
+		"build:docs": "node scripts/generate-openapi.cjs",
+		"build:cjs": "node ../../scripts/sync-common-types.cjs && tsc --project tsconfig/tsconfig.cjs.json && node scripts/prepare-cjs.cjs",
+		"build:esm": "node ../../scripts/sync-common-types.cjs && tsc --project tsconfig/tsconfig.esm.json",
+		"build": "run-s build:docs build:cjs build:esm test:package",
+		"test": "vitest run",
+		"test:package": "node scripts/test-package.cjs",
+		"test:unit": "vitest run tests/unit",
+		"test:functional": "vitest run tests/functional",
+		"test:watch": "vitest --watch",
+		"prepublishOnly": "run-s lint test build",
+		"lint": "eslint --config ../../eslint.config.mjs --no-error-on-unmatched-pattern --ext .js,.cjs,.mjs,.ts,.mts,.tsx,.vue,.json,.md ./",
+		"lintfix": "eslint --config ../../eslint.config.mjs --fix --no-error-on-unmatched-pattern --ext .js,.cjs,.mjs,.ts,.mts,.tsx,.vue,.json,.md ./",
+		"format": "run-s lintfix pretty",
+		"cleanbuild": "rimraf dist && run-s format build",
+		"pretty": "prettier --config ../../.prettierrc --write \"**/*.{js,jsx,cjs,mjs,ts,tsx,mts,vue,json,md}\"",
+		"release:check": "bash ./scripts/release-check.sh",
+		"release": "bash ./scripts/release.sh"
+	},
+	"dependencies": {
+		"@fastify/cookie": "^11.1.2",
+		"@fastify/cors": "^11.3.0",
+		"@fastify/multipart": "^10.1.0",
+		"@fastify/static": "^10.1.3",
+		"@simplewebauthn/server": "^13.3.2",
+		"@types/jsonwebtoken": "^9.0.10",
+		"bcryptjs": "^3.0.3",
+		"fastify": "^5.11.3",
+		"jsonwebtoken": "^9.0.3"
+	},
+	"devDependencies": {
+		"@types/supertest": "^7.2.1",
+		"@vitest/coverage-v8": "4.1.10",
+		"mysql2": "^3.23.3",
+		"pg": "^8.23.0",
+		"sequelize": "^6.37.8",
+		"sqlite3": "^6.0.1",
+		"supertest": "^7.2.2",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10"
+	},
+	"peerDependencies": {
+		"mysql2": "^3.16.0",
+		"pg": "^8.16.3",
+		"sequelize": "^6.37.7",
+		"sqlite3": "^5.1.7 || ^6.0.1"
+	},
+	"peerDependenciesMeta": {
+		"mysql2": {
+			"optional": true
+		},
+		"pg": {
+			"optional": true
+		},
+		"sequelize": {
+			"optional": true
+		},
+		"sqlite3": {
+			"optional": true
+		}
+	},
+	"files": [
+		"dist/",
+		"docs/",
+		"package.json",
+		"CHANGES.md",
+		"LICENSE",
+		"README.md"
+	]
+}
