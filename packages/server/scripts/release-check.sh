@@ -132,9 +132,9 @@ if [ ! -f "$CHANGES_FILE" ]; then
 fi
 
 if ! awk -v v="$VERSION" '
-	/^v[0-9]/ {
+	/^(v[0-9]|Version [0-9])/ {
 		line = $0
-		sub(/^v/, "", line)
+		sub(/^(v|Version )/, "", line)
 		ver = line
 		sub(/[[:space:]]+\(.*/, "", ver)
 		if (ver == v) {
@@ -143,7 +143,7 @@ if ! awk -v v="$VERSION" '
 	}
 	END { exit(found ? 0 : 1) }
 ' "$CHANGES_FILE"; then
-	echo "${CHANGES_FILE} is missing 'v${VERSION} (<YYYY-MM-DD>)'." >&2
+	echo "${CHANGES_FILE} is missing 'Version ${VERSION} (<YYYY-MM-DD>)' or its legacy v-prefixed heading." >&2
 	echo "Add the version section before release." >&2
 	exit 1
 fi
