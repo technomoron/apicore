@@ -290,6 +290,128 @@ document.paths['/api/v1/upload/{uploadId}'] = {
 	}
 };
 
+// Optional standards-facing OAuth provider. These protocol documents and
+// token/error responses are raw JSON rather than ApiResponse envelopes.
+schemas.OAuthAuthorizationServerMetadata = {
+	type: 'object',
+	required: ['issuer', 'authorization_endpoint', 'token_endpoint', 'response_types_supported'],
+	properties: {
+		issuer: { type: 'string', format: 'uri' },
+		authorization_endpoint: { type: 'string', format: 'uri' },
+		token_endpoint: { type: 'string', format: 'uri' },
+		response_types_supported: { type: 'array', items: { type: 'string' } },
+		grant_types_supported: { type: 'array', items: { type: 'string' } },
+		code_challenge_methods_supported: { type: 'array', items: { type: 'string' } },
+		token_endpoint_auth_methods_supported: { type: 'array', items: { type: 'string' } },
+		scopes_supported: { type: 'array', items: { type: 'string' } },
+		authorization_response_iss_parameter_supported: { type: 'boolean' }
+	}
+};
+schemas.OAuthProtocolError = {
+	type: 'object',
+	required: ['error', 'error_description'],
+	properties: { error: { type: 'string' }, error_description: { type: 'string' } }
+};
+schemas.OAuthProtocolTokenResponse = {
+	type: 'object',
+	required: ['access_token', 'token_type', 'expires_in', 'scope'],
+	properties: {
+		access_token: { type: 'string' },
+		refresh_token: { type: 'string' },
+		token_type: { type: 'string', enum: ['Bearer'] },
+		expires_in: { type: 'integer', minimum: 1 },
+		scope: { type: 'string' }
+	}
+};
+const protocolResponse = (description, schema) => ({
+	description,
+	content: { 'application/json': { schema: { $ref: '#/components/schemas/' + schema } } }
+});
+const protocolError = protocolResponse('OAuth protocol error. No tokens are returned.', 'OAuthProtocolError');
+document.components.securitySchemes.oauthClientBasic = { type: 'http', scheme: 'basic' };
+document.paths['/.well-known/oauth-authorization-server/oauth'] = {
+	get: {
+		tags: ['oauth'],
+		summary: 'Discover the optional standard OAuth authorization server',
+		description:
+			'Auth: none. Mounted only by OAuthAuthorizationServer. The well-known path includes the configured issuer path. Returns RFC 8414 metadata as raw JSON.',
+		security: [],
+		responses: { 200: protocolResponse('Authorization-server metadata.', 'OAuthAuthorizationServerMetadata') }
+	}
+};
+document.paths['/oauth/authorize'] = {
+	get: {
+		tags: ['oauth'],
+		summary: 'Authorize a standard OAuth client',
+		description:
+			'Auth: none. Optional OAuthAuthorizationServer route. The application callback must authenticate the browser user and obtain consent. Requires S256 PKCE for every client. Validated redirects contain code or error, state, and iss.',
+		security: [],
+		parameters: [
+			{ name: 'client_id', in: 'query', required: true, schema: { type: 'string' } },
+			{ name: 'redirect_uri', in: 'query', required: true, schema: { type: 'string', format: 'uri' } },
+			{ name: 'response_type', in: 'query', required: true, schema: { type: 'string', enum: ['code'] } },
+			{ name: 'code_challenge', in: 'query', required: true, schema: { type: 'string' } },
+			{ name: 'code_challenge_method', in: 'query', required: true, schema: { type: 'string', enum: ['S256'] } },
+			{ name: 'scope', in: 'query', schema: { type: 'string' } },
+			{ name: 'state', in: 'query', schema: { type: 'string' } },
+			{
+				name: 'resource',
+				in: 'query',
+				style: 'form',
+				explode: true,
+				schema: { type: 'array', items: { type: 'string', format: 'uri' } }
+			}
+		],
+		responses: {
+			200: { description: 'Application-provided login or consent response.' },
+			302: {
+				description: 'Redirect to the registered callback, or an application-owned login flow.',
+				headers: { Location: { schema: { type: 'string', format: 'uri' } } }
+			},
+			400: protocolError,
+			500: protocolError
+		}
+	}
+};
+document.paths['/oauth/token'] = {
+	post: {
+		tags: ['oauth'],
+		summary: 'Exchange or refresh a standard OAuth grant',
+		description:
+			'Auth: optional. Optional OAuthAuthorizationServer route. Confidential clients authenticate with HTTP Basic or client_secret_post; public clients identify themselves with client_id and use PKCE. Returns raw OAuth JSON, disables caching, and rotates refresh tokens.',
+		security: [{}, { oauthClientBasic: [] }],
+		requestBody: {
+			required: true,
+			content: {
+				'application/x-www-form-urlencoded': {
+					schema: {
+						type: 'object',
+						required: ['grant_type'],
+						properties: {
+							grant_type: { type: 'string', enum: ['authorization_code', 'refresh_token', 'client_credentials'] },
+							client_id: { type: 'string' },
+							client_secret: { type: 'string' },
+							code: { type: 'string' },
+							redirect_uri: { type: 'string', format: 'uri' },
+							code_verifier: { type: 'string' },
+							refresh_token: { type: 'string' },
+							scope: { type: 'string' },
+							resource: { type: 'array', items: { type: 'string', format: 'uri' } }
+						}
+					},
+					encoding: { resource: { style: 'form', explode: true } }
+				}
+			}
+		},
+		responses: {
+			200: protocolResponse('OAuth access and refresh token pair.', 'OAuthProtocolTokenResponse'),
+			400: protocolError,
+			401: protocolError,
+			500: protocolError
+		}
+	}
+};
+
 function formatJson(value, depth = 0) {
 	if (Array.isArray(value)) {
 		if (value.length === 0 || value.every((entry) => entry === null || typeof entry !== 'object')) {

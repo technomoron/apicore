@@ -66,6 +66,10 @@ Throw `ApiError` for expected failures. Other exceptions become HTTP 500 respons
 
 Auth, passkey, OAuth, and TUS routes are mounted only when their module and required services are configured.
 
+## Standard OAuth provider
+
+`OAuthAuthorizationServer` adds optional discovery, browser authorization, PKCE and form-encoded token/refresh endpoints using existing stores. Resource validation and RFC 9728 metadata helpers can protect any API, including MCP. Applications supply login/consent, registered clients, persistent storage and resource permissions. See [OAuth provider setup](docs/oauth/README.md#standard-oauth-authorization-server).
+
 ## Important configuration
 
 | Option | Default | Purpose |

@@ -26,6 +26,7 @@ services are configured.
 | Core (ping, upload purge) | `/v1` | Always |
 | `AuthModule` | `/auth` | Mounted explicitly, with a user store and token store |
 | Passkey routes | `/auth/v1/passkeys` | A passkey service is configured on the auth storage |
+| `OAuthAuthorizationServer` | configured public issuer path | Explicit `.register()`, with stores and a login/consent callback |
 | OAuth routes | `/auth/v1/oauth2` | An OAuth store is configured on the auth storage |
 | `TusUploadModule` | configurable, default `/api/v1/upload` | Mounted explicitly with an explicit `auth` option |
 

@@ -91,6 +91,12 @@ export type {
 
 export { OAuthStore } from './oauth/base.js';
 export { MemoryOAuthStore } from './oauth/memory.js';
+export { OAuthAuthorizationServer, OAuthProtocolError } from './oauth/authorization-server.js';
+export type {
+	OAuthAuthorizationServerOptions,
+	OAuthAuthorizationContext,
+	OAuthAccessToken
+} from './oauth/authorization-server.js';
 
 export { FixedWindowRateLimiter } from './limiter/fixed-window.js';
 export type { RateLimitDecision } from './limiter/fixed-window.js';
@@ -115,3 +121,9 @@ export type {
 	TusUploadStore,
 	UploadPurgeResult
 } from './upload/types.js';
+
+export { JsonTokenStore } from './token/json.js';
+export { OAuthPasswordLogin } from './oauth/password-login.js';
+export type { OAuthPasswordLoginOptions } from './oauth/password-login.js';
+export type { OAuthGrantContext } from './oauth/authorization-server.js';
+export { verifyTotp } from './oauth/totp.js';
