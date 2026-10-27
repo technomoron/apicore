@@ -180,3 +180,34 @@ Outside `devMode`, `ApiServer` warns at construction when:
   secret makes each verifiable as the other. Always use two distinct secrets.
 - `corsAllowAll` is on with an empty `origins` list.
 - `cookieSecure` is `'auto'` while `trustProxy` is `false`.
+
+## Application quotas and security events
+
+```ts
+const server = new ApiServer({
+	rateLimits: {
+		policies: {
+			ip: { limit: 120, windowMs: 60_000, identity: 'ip' },
+			search: { limit: 30, windowMs: 60_000, identity: 'user' }
+		},
+		global: 'ip',
+		maxKeys: 10_000
+		// store: customStore // implements RateLimitStore
+	},
+	securityEventSink: (record) => dedicatedLogger.write(JSON.stringify(record) + '\n')
+});
+```
+
+Set `rateLimit: 'search'` on an `ApiModule.defineRoutes()` route. `rateLimit: false` omits only its route policy. Routes without a policy still consume the configured global quota. No quotas apply unless configured.
+
+Global quotas run before authentication in `executeApiRequest`; route quotas run after authentication/authorization and before the handler. IP policies use the trust-proxy-aware `getClientIp()`; user policies use `getRealUid()`, including during impersonation. Missing identities return 401. Global user policies and unknown policies are rejected during setup. Restrict `trustProxy` to trusted proxy hops; arbitrary forwarded headers are not trusted by default.
+
+`await server.rateLimiter.consume('ip', canonicalIp, 5)` supports weighted costs. Identities must be trusted canonical strings, never raw user-supplied headers. `RateLimitStore.consume(key, { limit, windowMs }, cost = 1)` returns `Promise<RateLimitDecision>` with `{ allowed, limit, remaining, retryAfterSec }`. Limits, windows, costs, and `maxKeys` must be positive safe integers. Allowed decisions have `retryAfterSec: 0`; rejected decisions have `remaining: 0` and a rounded-up retry delay. Policy/identity keys use JSON tuple encoding to avoid namespace collisions.
+
+The default `MemoryRateLimitStore` starts a fixed window on first use, counts rejected attempts, and expires accessed entries lazily without extending windows. Its bounded map evicts the oldest-used key, including after rejected attempts. Eviction can reset quotas under key floods. Counters are process-local and reset on restart; use a custom store for multiple workers or instances. External adapters must return rejected decisions for quota denial and reject promises for backend failures; consumption, TTLs, and namespaces must remain atomic and consistent across instances.
+
+Denied requests return `ApiError(429)` with `data.retryAfterSec`. Backend failures propagate and fail closed through the normal error handler. No `Retry-After` header is added. These quotas cover only the ApiModule pipeline, after Fastify parsing/validation; native Fastify routes, sockets, and custom handlers are outside it. This does not replace edge DDoS protections.
+
+`await server.securityEvents.report('auth.login.failed', { ip })` sends `{ ...fields, ts, event }` to the optional sink. `ts` is an ISO timestamp; neither reserved field can be overridden. The service awaits the sink and propagates sink failures. There is no implicit console/file output, auth event emission, counter, or ban. Callers must select safe fields; never include credentials, OTPs, tokens, or full cookies. The application owns sink redaction, JSONL output and rotation; Fail2ban or another processor owns failure thresholds and bans.
+
+The existing `FixedWindowRateLimiter` and `createAuthRateLimitHook` are unchanged. The new exported `RateLimitDecision` requires all four fields; the old two-field type is available as `LegacyRateLimitDecision`.

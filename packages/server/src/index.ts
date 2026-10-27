@@ -1,5 +1,5 @@
 export { default as ApiServer } from './apicore-server.js';
-export { ApiError } from './apicore-server.js';
+export { ApiError, ApiErrorLogged } from './apicore-server.js';
 export { ApiModule } from './api-module.js';
 export { rawRequest } from './base/raw-request.js';
 export type { RawRequestOptions } from './base/raw-request.js';
@@ -9,6 +9,7 @@ export type { RequestSigningAlgorithm, RequestSigningLocation } from './base/req
 
 export type {
 	ApiErrorParams,
+	ApiErrorLoggedParams,
 	ApiHandler,
 	ApiHandlerRes,
 	ApiHandlerResult,
@@ -99,7 +100,7 @@ export type {
 } from './oauth/authorization-server.js';
 
 export { FixedWindowRateLimiter } from './limiter/fixed-window.js';
-export type { RateLimitDecision } from './limiter/fixed-window.js';
+export type { RateLimitDecision as LegacyRateLimitDecision } from './limiter/fixed-window.js';
 export { createAuthRateLimitHook } from './limiter/auth-rate-limiter.js';
 export type { AuthRateLimitConfig } from './limiter/auth-rate-limiter.js';
 
@@ -127,3 +128,14 @@ export { OAuthPasswordLogin } from './oauth/password-login.js';
 export type { OAuthPasswordLoginOptions } from './oauth/password-login.js';
 export type { OAuthGrantContext } from './oauth/authorization-server.js';
 export { verifyTotp } from './oauth/totp.js';
+
+export { MemoryRateLimitStore, RateLimitService } from './limiter/rate-limit.js';
+export type {
+	RateLimitRule,
+	RateLimitDecision,
+	RateLimitStore,
+	RateLimitPolicy,
+	RateLimitConfig
+} from './limiter/rate-limit.js';
+export { SecurityEventService } from './base/security-events.js';
+export type { SecurityEventRecord, SecurityEventSink } from './base/security-events.js';

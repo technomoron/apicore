@@ -52,6 +52,8 @@ export type ApiRoute = {
 	strictProps?: boolean;
 	/** Override the module/server request signer, or disable signing for this route. */
 	signer?: RequestSigner | false;
+	/** Named route quota; false omits only the route quota, never the global quota. */
+	rateLimit?: string | false;
 };
 
 /** Base class for feature modules mounted into {@link ApiServer}. */

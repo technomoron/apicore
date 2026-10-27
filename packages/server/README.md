@@ -54,7 +54,19 @@ The route above is available at `/api/status`. Module handlers return `[status]`
 }
 ```
 
-Throw `ApiError` for expected failures. Other exceptions become HTTP 500 responses without exposing internal error details unless development mode is enabled.
+Throw `ApiError` for expected public failures. Use `ApiErrorLogged` (a subclass of `ApiError`) to keep diagnostics private:
+
+```ts
+throw new ApiErrorLogged({
+	code: 502,
+	message: 'Could not update your profile. Please try again.',
+	cause: error
+});
+```
+
+`ApiErrorLogged` accepts all `ApiError` parameters plus required `cause: unknown`. The response preserves `code`, `message`, `data`, and `errors`, adding a 12-character URL-safe Nano ID in `errorId`. The cause is logged, never returned. Unexpected errors return HTTP 500 with `Internal server error` and an `errorId`, including in debug mode.
+
+Set server config `appName` (default `app`) for `/var/log/apicore-[appname].log`; characters outside letters, digits, `_`, and `-` become `_`. Set `logFile` to override the path, for example `{ appName: 'my-api', logFile: '/var/log/my-api-errors.log' }`. Relative paths resolve from the working directory. Provision the parent directory and make the file writable by the app user. Each JSON line includes the app name, PID, matching error ID, and redacted diagnostics; newlines are escaped. If writing fails, the redacted line goes to stderr. Credential fields, common credentials in messages/URLs, and configured JWT secrets are redacted. Avoid putting other sensitive information in error messages.
 
 ## Built-in areas
 

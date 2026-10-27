@@ -32,12 +32,13 @@ describe('Error handling', () => {
 		expect(errorSpy).toHaveBeenCalled();
 	});
 
-	it('includes underlying exception text for unexpected errors in debug mode', async () => {
+	it('masks unexpected errors in debug mode', async () => {
 		const server = createServer({ debug: true });
 		const response = await request(server.app).get('/api/example/crash');
 		expect(response.status).toBe(500);
 		expect(response.body.code).toBe(500);
-		expect(response.body.message).toBe('Unexpected failure');
+		expect(response.body.message).toBe('Internal server error');
+		expect(response.body.errorId).toMatch(/^[A-Za-z0-9_-]{12}$/);
 		expect(response.body.errors).toEqual({});
 	});
 

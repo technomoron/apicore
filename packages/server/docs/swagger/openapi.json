@@ -2,7 +2,7 @@
 	"openapi": "3.1.0",
 	"info": {
 		"title": "ApiCore Server",
-		"version": "1.1.0",
+		"version": "2.0.0",
 		"description": "OpenAPI reference for ApiCore Server base endpoints and optional modules. Auth, passkey, and oauth modules are optional and require the corresponding module to be enabled in the ApiServer config. Base endpoints are always available."
 	},
 	"servers": [

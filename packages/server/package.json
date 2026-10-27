@@ -1,6 +1,6 @@
 {
 	"name": "@technomoron/apicore-server",
-	"version": "1.1.0",
+	"version": "2.0.0",
 	"description": "Fastify API server framework with auth, JWT, OAuth, passkeys, and Sequelize adapters",
 	"type": "module",
 	"main": "./dist/cjs/index.cjs",

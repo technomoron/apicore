@@ -32,11 +32,14 @@ import { normalizeTokenIdentityQuery, type TokenIdentityQuery } from './auth-api
 import { buildAuthCookieOptions } from './auth-cookie-options.js';
 import { ensureClientInfo, type ClientInfo } from './base/client-info.js';
 import { redactDebugValue as redactSensitiveDebugValue } from './base/debug.js';
+import { createErrorId, logError } from './base/error-log.js';
 import { asHttpStatus, guessExceptionText, isApiErrorLike, type ApiErrorLike } from './base/error-utils.js';
 import { applyRouteSchemaDefaults, emptyObjectSchema } from './base/json-schema.js';
 import { RuntimeOpenApiDocument } from './base/openapi.js';
 import { RequestSignatureError, type RequestSigner } from './base/request-signing.js';
 import { hydrateGetBody, isPlainObject } from './base/request-utils.js';
+import { SecurityEventService, type SecurityEventSink } from './base/security-events.js';
+import { RateLimitService, type RateLimitConfig } from './limiter/rate-limit.js';
 import {
 	TokenStore,
 	type JwtDecodeResult,
@@ -240,6 +243,7 @@ type CompatNext = (error?: unknown) => void;
 type CompatRequestHandler = (req: ExpressApiRequest, res: _ApiReply, next: CompatNext) => unknown;
 type CompatErrorHandler = (err: unknown, req: ExpressApiRequest, res: _ApiReply, next: CompatNext) => unknown;
 interface ApiResponsePayload {
+	errorId?: string;
 	success: boolean;
 	code: number;
 	message: string;
@@ -365,7 +369,28 @@ export class ApiError extends Error {
 	}
 }
 
+export interface ApiErrorLoggedParams extends ApiErrorParams {
+	cause: unknown;
+}
+
+export class ApiErrorLogged extends ApiError {
+	public override readonly cause!: unknown;
+	public readonly errorId = createErrorId();
+
+	// Keep public error fields separate from server-side diagnostics.
+	constructor({ cause, ...params }: ApiErrorLoggedParams) {
+		super(params);
+		Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
+	}
+}
+
 export interface ApiServerConf {
+	rateLimits?: RateLimitConfig;
+	securityEventSink?: SecurityEventSink;
+	/** Application name used in /var/log/apicore-[appname].log. Defaults to app. */
+	appName?: string;
+	/** Error log path. Defaults to /var/log/apicore-[appname].log. */
+	logFile?: string;
 	apiPort: number;
 	apiHost: string;
 	/** Root directory for uploads. MIME and TUS files use `mime` and `tus` subdirectories. */
@@ -475,6 +500,8 @@ function fillUploadConfig(
 function fillHttpConfig(
 	config: Partial<ApiServerConf>
 ): ApiServerConfigSection<
+	| 'appName'
+	| 'logFile'
 	| 'apiPort'
 	| 'apiHost'
 	| 'staticDirs'
@@ -488,6 +515,8 @@ function fillHttpConfig(
 	| 'trustProxy'
 > {
 	return {
+		appName: config.appName ?? 'app',
+		logFile: config.logFile,
 		apiPort: config.apiPort ?? 3101,
 		apiHost: config.apiHost ?? 'localhost',
 		staticDirs: config.staticDirs,
@@ -579,7 +608,9 @@ function fillConfig(config: Partial<ApiServerConf>): ApiServerConf {
 		...fillUploadConfig(config),
 		...fillCookieConfig(config),
 		...fillTokenConfig(config),
-		...fillAuthConfig(config)
+		...fillAuthConfig(config),
+		rateLimits: config.rateLimits,
+		securityEventSink: config.securityEventSink
 	};
 }
 
@@ -593,6 +624,8 @@ export class ApiServer {
 	};
 	public readonly fastify: FastifyInstance;
 	public readonly config: ApiServerConf;
+	public readonly rateLimiter: RateLimitService;
+	public readonly securityEvents: SecurityEventService;
 	public readonly startedAt: number;
 	private readonly apiBasePath: string;
 	private finalized = false;
@@ -627,6 +660,8 @@ export class ApiServer {
 
 	constructor(config: Partial<ApiServerConf> = {}) {
 		this.config = fillConfig(config);
+		this.rateLimiter = new RateLimitService(this.config.rateLimits);
+		this.securityEvents = new SecurityEventService(this.config.securityEventSink);
 		this.apiBasePath = this.normalizeApiBasePath(this.config.apiBasePath);
 		this.startedAt = Date.now();
 		this.storageAdapter = nullAuthAdapter;
@@ -656,18 +691,10 @@ export class ApiServer {
 					this.fastify.routing(req, res);
 				})
 				.catch((error: unknown) => {
-					const message = this.internalServerErrorMessage(error);
+					const payload = this.maskedErrorPayload(error);
 					res.statusCode = 500;
 					res.setHeader('content-type', 'application/json');
-					res.end(
-						JSON.stringify({
-							success: false,
-							code: 500,
-							message,
-							data: null,
-							errors: {}
-						})
-					);
+					res.end(JSON.stringify(payload));
 				});
 		};
 		appHandler.listen = (...args: unknown[]) => {
@@ -1673,19 +1700,22 @@ export class ApiServer {
 		reply.code(403).send('Origin not allowed by CORS');
 	}
 
+	// Send known request errors or mask server failures.
 	private sendFastifyStatusError(error: unknown, status: number, reply: FastifyReply): void {
 		if (status >= 500) {
-			this.logUnhandledError(`Unhandled Fastify error mapped to HTTP ${status}`, error);
+			reply.code(500).send(this.maskedErrorPayload(error));
+			return;
 		}
 		const message =
 			status === 413
 				? `Upload exceeds maximum size of ${this.config.uploadMax} bytes`
 				: status === 400
 					? 'Invalid request payload'
-					: this.internalServerErrorMessage(error);
+					: 'Internal server error';
 		reply.code(status).send(this.failurePayload(status, message));
 	}
 
+	// Format public errors and mask unexpected Fastify failures.
 	private handleFastifyError(error: unknown, request: FastifyRequest, reply: FastifyReply): void {
 		const message = error instanceof Error ? error.message : '';
 		if (message.includes('Not allowed by CORS')) {
@@ -1707,12 +1737,17 @@ export class ApiServer {
 			this.sendFastifyStatusError(error, status, reply);
 			return;
 		}
-		this.logUnhandledError('Unhandled Fastify error fallback to HTTP 500', error);
-		reply.code(500).send(this.failurePayload(500, this.internalServerErrorMessage(error)));
+		reply.code(500).send(this.maskedErrorPayload(error));
 	}
 
+	// Preserve public error fields and log private causes.
 	private apiErrorPayload(apiError: ApiErrorLike): ApiResponsePayload {
+		const logged = apiError instanceof ApiErrorLogged;
+		if (logged) {
+			this.logUnhandledError('ApiErrorLogged', apiError.cause, apiError.errorId);
+		}
 		return {
+			...(logged ? { errorId: apiError.errorId } : {}),
 			success: false,
 			code: apiError.code,
 			message: apiError.message,
@@ -1763,12 +1798,23 @@ export class ApiServer {
 		return this;
 	}
 
-	private internalServerErrorMessage(error: unknown): string {
-		return this.config.debug ? this.guessExceptionText(error) : 'Internal server error';
+	// Correlate masked responses with server-side diagnostics.
+	private maskedErrorPayload(error: unknown): ApiResponsePayload {
+		const errorId = createErrorId();
+		this.logUnhandledError('Unexpected error', error, errorId);
+		return { ...this.failurePayload(500, 'Internal server error'), errorId };
 	}
 
-	private logUnhandledError(context: string, error: unknown): void {
-		console.error(`[ApiServer] ${context}`, error);
+	// Write redacted diagnostics using the application's log file.
+	private logUnhandledError(context: string, error: unknown, errorId = createErrorId()): void {
+		logError(
+			this.config.appName ?? 'app',
+			errorId,
+			context,
+			error,
+			[this.config.accessSecret, this.config.refreshSecret],
+			this.config.logFile
+		);
 	}
 
 	private async verifyJWT(token: string): Promise<{
@@ -2494,6 +2540,7 @@ export class ApiServer {
 		};
 	}
 
+	// Format errors from Express compatibility middleware.
 	public expressErrorHandler(): CompatErrorHandler {
 		return (error: unknown, _req: ExpressApiRequest, res: _ApiReply, next: CompatNext) => {
 			void _req;
@@ -2508,27 +2555,13 @@ export class ApiServer {
 				return;
 			}
 			const status = asHttpStatus(error);
-			if (status) {
-				if (status >= 500) {
-					this.logUnhandledError(`Unhandled compat middleware error mapped to HTTP ${status}`, error);
-				}
-				res.status(status).json({
-					success: false,
-					code: status,
-					message: status === 400 ? 'Invalid request payload' : this.internalServerErrorMessage(error),
-					data: null,
-					errors: {}
-				});
+			if (status && status < 500) {
+				res.status(status).json(
+					this.failurePayload(status, status === 400 ? 'Invalid request payload' : 'Internal server error')
+				);
 				return;
 			}
-			this.logUnhandledError('Unhandled compat middleware error fallback to HTTP 500', error);
-			res.status(500).json({
-				success: false,
-				code: 500,
-				message: this.internalServerErrorMessage(error),
-				data: null,
-				errors: {}
-			});
+			res.status(500).json(this.maskedErrorPayload(error));
 		};
 	}
 
@@ -2663,15 +2696,15 @@ export class ApiServer {
 		);
 	}
 
+	// Preserve request statuses and mask unexpected server errors.
 	private unexpectedRouteErrorPayload(error: unknown): ApiResponsePayload {
-		const status = asHttpStatus(error) ?? 500;
-		if (status >= 500) {
-			this.logUnhandledError('Unhandled API route error fallback to HTTP 500', error);
-		}
 		if (this.isUploadLimitError(error)) {
 			return this.failurePayload(413, `Upload exceeds maximum size of ${this.config.uploadMax} bytes`);
 		}
-		return this.failurePayload(status, this.internalServerErrorMessage(error));
+		const status = asHttpStatus(error);
+		return status && status < 500
+			? this.failurePayload(status, status === 400 ? 'Invalid request payload' : 'Internal server error')
+			: this.maskedErrorPayload(error);
 	}
 
 	private routeErrorPayload(
@@ -2689,17 +2722,41 @@ export class ApiServer {
 			: this.unexpectedRouteErrorPayload(normalizedError);
 	}
 
+	// Resolve trusted identities and enforce quotas without swallowing store failures.
+	private async enforceRateLimit(policyName: string | false | undefined, apiReq: ApiRequest): Promise<void> {
+		if (policyName === undefined || policyName === false) {
+			return;
+		}
+		const policy = this.rateLimiter.getPolicy(policyName);
+		const identity = policy.identity === 'ip' ? apiReq.getClientIp() : apiReq.getRealUid();
+		if (identity === null || identity === undefined || String(identity).trim() === '') {
+			throw new ApiError({ code: 401, message: 'Rate limit identity is unavailable' });
+		}
+		const decision = await this.rateLimiter.consume(policyName, String(identity));
+		if (!decision.allowed) {
+			throw new ApiError({
+				code: 429,
+				message: 'Too many requests',
+				data: { retryAfterSec: decision.retryAfterSec }
+			});
+		}
+	}
+
+	// Apply global quotas before authentication and route quotas before executing the handler.
 	private async executeApiRequest(
 		handler: ApiHandler,
 		auth: { type: ApiAuthType; req: ApiAuthClass },
 		request: FastifyRequest,
 		reply: FastifyReply,
-		routeValidator?: ResolvedRouteValidator | null
+		routeValidator?: ResolvedRouteValidator | null,
+		rateLimit?: string | false
 	): Promise<void> {
 		const req = this.toExtendedReq(request);
 		const apiReq = this.createApiRequest(req, new FastifyResponseAdapter(reply));
 		try {
+			await this.enforceRateLimit(this.config.rateLimits?.global, apiReq);
 			await this.prepareAuthenticatedRequest(apiReq, auth, apiReq.req, routeValidator, request, reply);
+			await this.enforceRateLimit(rateLimit, apiReq);
 			const payload = this.handlerResponsePayload(await handler(apiReq));
 			this.sendRoutePayload(apiReq, reply, payload);
 		} catch (error) {
@@ -2708,13 +2765,15 @@ export class ApiServer {
 		}
 	}
 
+	// Carry route policy selection into the centralized API request pipeline.
 	private handleRequest(
 		handler: ApiHandler,
 		auth: { type: ApiAuthType; req: ApiAuthClass },
-		routeValidator?: ResolvedRouteValidator | null
+		routeValidator?: ResolvedRouteValidator | null,
+		rateLimit?: string | false
 	) {
 		return (request: FastifyRequest, reply: FastifyReply) =>
-			this.executeApiRequest(handler, auth, request, reply, routeValidator);
+			this.executeApiRequest(handler, auth, request, reply, routeValidator, rateLimit);
 	}
 
 	// Test/compat shim for direct unit-level request wrapping without Fastify runtime.
@@ -2760,7 +2819,10 @@ export class ApiServer {
 
 		for (const route of module.defineRoutes()) {
 			const routeValidator = this.resolveRouteValidator(route);
-			const handler = this.handleRequest(route.handler, route.auth, routeValidator);
+			if (route.rateLimit !== undefined && route.rateLimit !== false) {
+				this.rateLimiter.getPolicy(route.rateLimit);
+			}
+			const handler = this.handleRequest(route.handler, route.auth, routeValidator, route.rateLimit);
 			const method = route.method.toUpperCase() as HTTPMethods;
 			const fullPath = this.joinRoutePath(this.apiBasePath, ns, route.path);
 			const schema = applyRouteSchemaDefaults(route.schema, {

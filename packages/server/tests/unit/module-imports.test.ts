@@ -10,6 +10,9 @@ describe('package entry points', () => {
 		expect(typeof entry.ApiServer).toBe('function');
 		expect(typeof entry.ApiModule).toBe('function');
 		expect(typeof entry.ApiError).toBe('function');
+		expect(typeof entry.MemoryRateLimitStore).toBe('function');
+		expect(typeof entry.RateLimitService).toBe('function');
+		expect(typeof entry.SecurityEventService).toBe('function');
 		expect(typeof entry.MemoryApiKeyStore).toBe('function');
 		expect(typeof entry.JsonApiKeyStore).toBe('function');
 
@@ -38,6 +41,9 @@ describe('package entry points', () => {
 		expect(typeof entry.ApiServer).toBe('function');
 		expect(typeof entry.ApiModule).toBe('function');
 		expect(typeof entry.ApiError).toBe('function');
+		expect(typeof entry.MemoryRateLimitStore).toBe('function');
+		expect(typeof entry.RateLimitService).toBe('function');
+		expect(typeof entry.SecurityEventService).toBe('function');
 		expect(typeof entry.MemoryApiKeyStore).toBe('function');
 		expect(typeof entry.JsonApiKeyStore).toBe('function');
 

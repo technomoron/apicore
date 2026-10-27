@@ -1,5 +1,13 @@
 # Changes
 
+Version 2.0.0 (2026-10-27)
+-------------------
+* Add ApiErrorLogged, correlated single-line app logs, and automatic unexpected-error masking.
+* Allow a custom error log path through server config `logFile`.
+* Add application quotas with an async store interface and optional security event sink.
+* `RateLimitDecision` now includes `limit` and `remaining`; the previous shape is exported as `LegacyRateLimitDecision`.
+* Implementation and tests assisted by OpenAI Codex.
+
 Version 1.1.0 (2026-10-22)
 -------------------
 * Add an optional generic OAuth authorization server with discovery, browser authorization, S256 PKCE, form-encoded token exchange, resource-bound tokens and refresh rotation.
