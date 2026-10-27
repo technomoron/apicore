@@ -1,6 +1,6 @@
 # Changes
 
-Version 2.0.0 (2026-10-27)
+Version 1.2.0 (2026-10-27)
 -------------------
 * Add ApiErrorLogged, correlated single-line app logs, and automatic unexpected-error masking.
 * Allow a custom error log path through server config `logFile`.
